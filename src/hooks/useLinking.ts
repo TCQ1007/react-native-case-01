@@ -148,37 +148,34 @@ export const useLinking = (): UseLinkingReturn => {
       if (Platform.OS === 'android') {
         console.log(`开始尝试使用 ${browser.name} 打开:`, url);
         
-        // 方法1: 最简单的方式 - 直接尝试启动应用并传递URL
-        try {
-          // 先检查应用是否安装
-          const isInstalled = await checkBrowserInstalled(browser.packageName);
-          if (!isInstalled) {
-            console.log(`${browser.name} 未安装`);
+        // 先检查应用是否安装
+        const isInstalled = await checkBrowserInstalled(browser.packageName);
+        if (!isInstalled) {
+          console.log(`${browser.name} 未安装`);
+          return false;
+        }
+
+        // 对于Chrome系列浏览器，不使用深度链接，直接使用系统默认方式
+        if (browser.packageName.includes('chrome') || browser.packageName.includes('Chrome')) {
+          console.log(`Chrome浏览器使用系统默认方式打开`);
+          try {
+            await Linking.openURL(url);
+            console.log(`${browser.name} 系统方式打开成功`);
+            return true;
+          } catch (error) {
+            console.log(`${browser.name} 系统方式失败:`, error);
             return false;
           }
+        }
 
-          // 对于Chrome系列浏览器，使用特殊处理
-          if (browser.packageName.includes('chrome') || browser.packageName.includes('Chrome')) {
-            // 尝试使用Chrome的深度链接
-            try {
-              const chromeUrl = `googlechrome://navigate?url=${encodeURIComponent(url)}`;
-              console.log(`尝试使用Chrome深度链接:`, chromeUrl);
-              await Linking.openURL(chromeUrl);
-              console.log(`${browser.name} 深度链接成功`);
-              return true;
-            } catch (error) {
-              console.log(`${browser.name} 深度链接失败:`, error);
-            }
-          }
-
-          // 方法2: 使用标准方式打开，让系统选择器处理
-          console.log(`尝试让系统处理URL并选择 ${browser.name}`);
+        // 其他浏览器也使用系统默认方式
+        try {
+          console.log(`${browser.name} 使用系统默认方式打开`);
           await Linking.openURL(url);
           console.log(`${browser.name} 系统方式成功`);
           return true;
-
         } catch (error) {
-          console.log(`${browser.name} 所有方法都失败:`, error);
+          console.log(`${browser.name} 系统方式失败:`, error);
           return false;
         }
       }
@@ -204,8 +201,32 @@ export const useLinking = (): UseLinkingReturn => {
         return;
       }
 
+      // 过滤重复的Chrome浏览器，只保留一个主要的Chrome
+      const filteredBrowsers = availableBrowsers.filter((browser, index, arr) => {
+        if (browser.packageName.includes('chrome')) {
+          // 优先保留标准Chrome，如果没有则保留第一个Chrome变体
+          const chromeIndex = arr.findIndex(b => b.packageName === 'com.android.chrome');
+          if (chromeIndex !== -1) {
+            return browser.packageName === 'com.android.chrome';
+          } else {
+            return index === arr.findIndex(b => b.packageName.includes('chrome'));
+          }
+        }
+        return true;
+      });
+
+      console.log(`过滤后剩余 ${filteredBrowsers.length} 个浏览器`);
+
+      // 限制显示的浏览器数量，Alert最多只能显示几个按钮
+      const maxBrowsers = 6; // Alert对话框的按钮限制
+      const displayBrowsers = filteredBrowsers.slice(0, maxBrowsers);
+      
+      if (filteredBrowsers.length > maxBrowsers) {
+        console.log(`只显示前 ${maxBrowsers} 个浏览器，共检测到 ${filteredBrowsers.length} 个`);
+      }
+
       // 创建浏览器选项
-      const browserOptions = availableBrowsers.map(browser => ({
+      const browserOptions = displayBrowsers.map(browser => ({
         text: `${browser.icon} ${browser.name}`,
         onPress: () => {
           console.log(`用户选择了 ${browser.name}`);
@@ -231,10 +252,21 @@ export const useLinking = (): UseLinkingReturn => {
         }
       });
 
+      // 如果有更多浏览器，添加"查看更多"选项
+      if (filteredBrowsers.length > maxBrowsers) {
+        browserOptions.push({
+          text: '📱 查看更多浏览器...',
+          onPress: () => {
+            console.log('用户选择查看更多浏览器');
+            showMoreBrowsers(url, title, filteredBrowsers.slice(maxBrowsers));
+          }
+        });
+      }
+
       // 显示选择对话框
       Alert.alert(
         '选择浏览器',
-        `请选择用于打开 "${title}" 的浏览器：\n\n检测到 ${availableBrowsers.length} 个可用浏览器`,
+        `请选择用于打开 "${title}" 的浏览器：\n\n检测到 ${availableBrowsers.length} 个可用浏览器${filteredBrowsers.length > maxBrowsers ? `，显示前 ${maxBrowsers} 个` : ''}`,
         [
           ...browserOptions,
           {
@@ -249,6 +281,47 @@ export const useLinking = (): UseLinkingReturn => {
       console.error('显示浏览器选择器失败:', error);
       // 降级到系统默认方式
       Alert.alert('提示', '浏览器检测失败，将使用系统默认方式打开');
+      await Linking.openURL(url);
+    }
+  };
+
+  // 显示更多浏览器选项
+  const showMoreBrowsers = async (url: string, title: string, moreBrowsers: Browser[]): Promise<void> => {
+    try {
+      console.log(`显示更多浏览器，共 ${moreBrowsers.length} 个`);
+      
+      const browserOptions = moreBrowsers.map(browser => ({
+        text: `${browser.icon} ${browser.name}`,
+        onPress: () => {
+          console.log(`用户选择了 ${browser.name}`);
+          openWithSpecificBrowser(url, browser).then(success => {
+            if (!success) {
+              console.log(`${browser.name} 打开失败，使用系统默认`);
+              Alert.alert('提示', `${browser.name} 打开失败，将使用系统默认浏览器打开`);
+              Linking.openURL(url);
+            }
+          });
+        }
+      }));
+
+      Alert.alert(
+        '更多浏览器',
+        `选择其他浏览器打开 "${title}"：`,
+        [
+          ...browserOptions,
+          {
+            text: '返回',
+            onPress: () => showBrowserChooser(url, title)
+          },
+          {
+            text: '取消',
+            style: 'cancel',
+            onPress: () => console.log('用户取消了操作')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('显示更多浏览器失败:', error);
       await Linking.openURL(url);
     }
   };
