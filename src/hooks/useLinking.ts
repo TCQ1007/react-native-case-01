@@ -57,6 +57,21 @@ const COMMON_BROWSERS: Browser[] = [
     icon: '📱',
   },
   {
+    name: '小米浏览器(全球版)',
+    packageName: 'com.mi.browser',
+    icon: '📱',
+  },
+  {
+    name: '小米浏览器(中国版)',
+    packageName: 'com.xiaomi.browser.mini',
+    icon: '📱',
+  },
+  {
+    name: '小米浏览器(MIUI)',
+    packageName: 'com.android.browser',
+    icon: '📱',
+  },
+  {
     name: 'UC浏览器',
     packageName: 'com.UCMobile.intl',
     icon: '🚀',
@@ -124,12 +139,32 @@ export const useLinking = (): UseLinkingReturn => {
       const canOpenMarket = await Linking.canOpenURL(marketUrl);
       console.log(`浏览器检测(Market) ${packageName}:`, canOpenMarket);
       
-      // 对于某些特殊浏览器，使用自定义scheme检测
+      // 方法3: 对于特殊浏览器，使用自定义scheme检测
       let customSchemeCheck = false;
       if (packageName === 'com.android.chrome' || packageName.includes('chrome')) {
         const chromeScheme = 'googlechrome://';
         customSchemeCheck = await Linking.canOpenURL(chromeScheme);
         console.log(`Chrome自定义scheme检测:`, customSchemeCheck);
+      } else if (packageName.includes('mi.') || packageName.includes('xiaomi')) {
+        // 小米浏览器可能支持的scheme
+        const xiaomiSchemes = [
+          'mibrowser://',
+          'xiaomibrowser://',
+          'miui-browser://',
+        ];
+        for (const scheme of xiaomiSchemes) {
+          try {
+            const canOpen = await Linking.canOpenURL(scheme);
+            if (canOpen) {
+              console.log(`小米浏览器scheme检测成功:`, scheme);
+              customSchemeCheck = true;
+              break;
+            }
+          } catch (e) {
+            // 忽略错误，继续下一个scheme
+          }
+        }
+        console.log(`小米浏览器自定义scheme检测:`, customSchemeCheck);
       }
       
       // 综合判断：Intent检测为主，自定义scheme作为补充
@@ -148,6 +183,7 @@ export const useLinking = (): UseLinkingReturn => {
     console.log('开始检测可用浏览器...');
     const availableBrowsers: Browser[] = [];
     
+    // 首先检测预定义的浏览器列表
     for (const browser of COMMON_BROWSERS) {
       console.log(`正在检测: ${browser.name} (${browser.packageName})`);
       const isInstalled = await checkBrowserInstalled(browser.packageName);
@@ -156,6 +192,31 @@ export const useLinking = (): UseLinkingReturn => {
         console.log(`✅ 发现已安装浏览器: ${browser.name} (${browser.packageName})`);
       } else {
         console.log(`❌ 浏览器未安装: ${browser.name} (${browser.packageName})`);
+      }
+    }
+    
+    // 特殊调试：尝试检测更多可能的小米浏览器包名
+    console.log('🔍 开始特殊检测小米浏览器...');
+    const possibleXiaomiPackages = [
+      'com.miui.browser',
+      'com.xiaomi.mibrowser',
+      'com.mi.android.browser',
+      'com.xiaomi.browser.global',
+      'com.mi.globalbrowser.global',
+      'com.android.browser', // 某些MIUI系统的默认浏览器
+    ];
+    
+    for (const packageName of possibleXiaomiPackages) {
+      console.log(`🔍 尝试检测可能的小米浏览器: ${packageName}`);
+      const isInstalled = await checkBrowserInstalled(packageName);
+      if (isInstalled) {
+        const xiaomiBrowser: Browser = {
+          name: `小米浏览器(检测到: ${packageName})`,
+          packageName: packageName,
+          icon: '📱',
+        };
+        availableBrowsers.push(xiaomiBrowser);
+        console.log(`🎉 发现新的小米浏览器: ${packageName}`);
       }
     }
     
