@@ -54,11 +54,11 @@ const Links = [
 
 function HomeScreen(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
-  const { openWithBrowserChoice, isLoading, loadingUrl } = useLinking();
+  const { openWithConfirmation, isLoading } = useLinking();
 
-  const handleLinkPress = async (link: { title: string; url: string }) => {
+  const handleLinkPress = (link: { title: string; url: string }) => {
     console.log('链接点击:', link.title, link.url);
-    await openWithBrowserChoice(link.url, link.title);
+    openWithConfirmation(link.url, link.title);
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -119,6 +119,11 @@ function HomeScreen(): React.JSX.Element {
       fontSize: 24,
       marginRight: 15,
     },
+    clickHint: {
+      fontSize: 10,
+      textAlign: 'center',
+      color: isDarkMode ? '#666666' : '#cccccc',
+    },
   });
 
   return (
@@ -140,12 +145,8 @@ function HomeScreen(): React.JSX.Element {
           {Links.map((link, index) => (
             <TouchableOpacity
               key={index}
-              style={[
-                dynamicStyles.link,
-                isLoading && loadingUrl === link.url && { backgroundColor: isDarkMode ? '#333333' : '#f0f0f0' }
-              ]}
+              style={dynamicStyles.link}
               onPress={() => handleLinkPress(link)}
-              disabled={isLoading}
             >
               <View style={styles.linkContent}>
                 <View style={styles.linkLeft}>
@@ -156,13 +157,13 @@ function HomeScreen(): React.JSX.Element {
                   </View>
                 </View>
                 <View style={styles.linkRight}>
-                  {isLoading && loadingUrl === link.url ? (
+                  {isLoading ? (
                     <ActivityIndicator 
                       size="small" 
                       color={isDarkMode ? "#ffffff" : "#007bff"} 
                     />
                   ) : (
-                    <Text style={[styles.clickHint, { color: isDarkMode ? '#666666' : '#cccccc' }]}>
+                    <Text style={dynamicStyles.clickHint}>
                       点击确认
                     </Text>
                   )}
@@ -206,10 +207,6 @@ const styles = StyleSheet.create({
   },
   linkTextContainer: {
     flex: 1,
-  },
-  clickHint: {
-    fontSize: 10,
-    textAlign: 'center',
   },
 });
 

@@ -1,107 +1,89 @@
 import { useState, useEffect } from 'react';
 import { Linking, Alert } from 'react-native';
 
-interface UseLinkingReturn {
-  openURL: (url: string, title?: string) => Promise<void>;
-  openWithBrowserChoice: (url: string, title?: string) => Promise<void>;
+export interface LinkingHook {
   isLoading: boolean;
-  loadingUrl: string | null;
+  openWithConfirmation: (url: string, title?: string) => void;
 }
 
-export const useLinking = (): UseLinkingReturn => {
+export const useLinking = (): LinkingHook => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
 
-  // 处理深度链接
+  // 监听深度链接
   useEffect(() => {
-    const handleInitialURL = async () => {
-      try {
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl) {
-          console.log('应用通过链接打开:', initialUrl);
-        }
-      } catch (error) {
-        console.error('获取初始URL失败:', error);
-      }
+    const handleDeepLink = (url: string) => {
+      console.log('收到深度链接:', url);
     };
 
-    handleInitialURL();
+    // 获取初始URL（应用冷启动时）
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
 
+    // 监听URL变化（应用热启动时）
     const subscription = Linking.addEventListener('url', (event) => {
-      console.log('接收到新的URL:', event.url);
+      handleDeepLink(event.url);
     });
 
     return () => subscription?.remove();
   }, []);
 
-  // 显示确认对话框
-  const showConfirmDialog = (url: string, title: string): void => {
+  // 直接打开URL的函数
+  const openURL = async (url: string): Promise<boolean> => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        return true;
+      } else {
+        Alert.alert('错误', '无法打开链接，请检查网络连接');
+        return false;
+      }
+    } catch (error) {
+      console.error('打开链接失败:', error);
+      Alert.alert('错误', '无法打开链接，请检查网络连接');
+      return false;
+    }
+  };
+
+  // 带确认对话框的打开URL函数
+  const openWithConfirmation = (url: string, title: string = '链接') => {
     Alert.alert(
-      '打开链接',
-      `即将使用默认浏览器打开：\n\n"${title}"\n\n${url}`,
+      '确认打开',
+      `是否要在浏览器中打开 "${title}"？`,
       [
         {
           text: '取消',
           style: 'cancel',
-          onPress: () => console.log('用户取消了操作')
         },
         {
           text: '确定',
-          onPress: () => {
+          onPress: async () => {
             console.log('用户确认打开链接');
-            Linking.openURL(url).catch(error => {
-              console.error('打开链接失败:', error);
-              Alert.alert('错误', '无法打开链接，请检查网络连接');
-            });
-          }
-        }
-      ]
+            setIsLoading(true);
+            
+            try {
+              const success = await openURL(url);
+              if (success) {
+                console.log('链接打开成功');
+              }
+            } catch (error) {
+              console.error('处理链接时出现问题:', error);
+              Alert.alert('错误', '处理链接时出现问题');
+            } finally {
+              // 立即关闭loading状态，避免残影
+              setIsLoading(false);
+            }
+          },
+        },
+      ],
     );
   };
 
-  // 带确认对话框的打开URL函数
-  const openWithBrowserChoice = async (url: string, title: string = '链接') => {
-    try {
-      setIsLoading(true);
-      setLoadingUrl(url);
-      console.log('开始处理链接:', { url, title });
-      showConfirmDialog(url, title);
-    } catch (error) {
-      console.error('处理链接失败:', error);
-      Alert.alert('错误', '处理链接时出现问题');
-    } finally {
-      setIsLoading(false);
-      setLoadingUrl(null);
-    }
-  };
-
-  // 直接打开URL函数
-  const openURL = async (url: string, title: string = '链接') => {
-    try {
-      setIsLoading(true);
-      setLoadingUrl(url);
-      console.log('直接打开链接:', { url, title });
-      
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-        console.log('URL打开成功');
-      } else {
-        throw new Error('URL无法打开');
-      }
-    } catch (error) {
-      console.error('打开链接失败:', error);
-      Alert.alert('打开失败', `无法打开 "${title}"`);
-    } finally {
-      setIsLoading(false);
-      setLoadingUrl(null);
-    }
-  };
-
   return {
-    openURL,
-    openWithBrowserChoice,
     isLoading,
-    loadingUrl,
+    openWithConfirmation,
   };
 }; 
