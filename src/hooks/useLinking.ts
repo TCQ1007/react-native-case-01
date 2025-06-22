@@ -1,13 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Linking, Alert } from 'react-native';
 
 export interface LinkingHook {
-  isLoading: boolean;
   openWithConfirmation: (url: string, title?: string) => void;
 }
 
 export const useLinking = (): LinkingHook => {
-  const [isLoading, setIsLoading] = useState(false);
 
   // 监听深度链接
   useEffect(() => {
@@ -31,20 +29,18 @@ export const useLinking = (): LinkingHook => {
   }, []);
 
   // 直接打开URL的函数
-  const openURL = async (url: string): Promise<boolean> => {
+  const openURL = async (url: string): Promise<void> => {
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
         await Linking.openURL(url);
-        return true;
+        console.log('链接打开成功');
       } else {
         Alert.alert('错误', '无法打开链接，请检查网络连接');
-        return false;
       }
     } catch (error) {
       console.error('打开链接失败:', error);
       Alert.alert('错误', '无法打开链接，请检查网络连接');
-      return false;
     }
   };
 
@@ -60,22 +56,12 @@ export const useLinking = (): LinkingHook => {
         },
         {
           text: '确定',
-          onPress: async () => {
+          onPress: () => {
             console.log('用户确认打开链接');
-            setIsLoading(true);
-            
-            try {
-              const success = await openURL(url);
-              if (success) {
-                console.log('链接打开成功');
-              }
-            } catch (error) {
-              console.error('处理链接时出现问题:', error);
-              Alert.alert('错误', '处理链接时出现问题');
-            } finally {
-              // 立即关闭loading状态，避免残影
-              setIsLoading(false);
-            }
+            // 使用setTimeout确保Alert完全关闭后再执行操作
+            setTimeout(() => {
+              openURL(url);
+            }, 100);
           },
         },
       ],
@@ -83,7 +69,6 @@ export const useLinking = (): LinkingHook => {
   };
 
   return {
-    isLoading,
     openWithConfirmation,
   };
 }; 

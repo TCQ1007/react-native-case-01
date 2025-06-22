@@ -7,7 +7,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
 import { useLinking } from '../hooks/useLinking';
@@ -54,7 +53,7 @@ const Links = [
 
 function HomeScreen(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
-  const { openWithConfirmation, isLoading } = useLinking();
+  const { openWithConfirmation } = useLinking();
 
   const handleLinkPress = (link: { title: string; url: string }) => {
     console.log('链接点击:', link.title, link.url);
@@ -157,16 +156,9 @@ function HomeScreen(): React.JSX.Element {
                   </View>
                 </View>
                 <View style={styles.linkRight}>
-                  {isLoading ? (
-                    <ActivityIndicator 
-                      size="small" 
-                      color={isDarkMode ? "#ffffff" : "#007bff"} 
-                    />
-                  ) : (
-                    <Text style={dynamicStyles.clickHint}>
-                      点击确认
-                    </Text>
-                  )}
+                  <Text style={dynamicStyles.clickHint}>
+                    点击确认
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
