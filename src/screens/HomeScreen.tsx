@@ -9,7 +9,6 @@ import {
   TouchableHighlight,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useLinking } from '../hooks/useLinking';
 
@@ -55,33 +54,11 @@ const Links = [
 
 function HomeScreen(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
-  const { openURL, openWithBrowserChoice, loadingUrl } = useLinking();
+  const { openWithBrowserChoice, loadingUrl } = useLinking();
 
-  // 普通点击：直接打开
+  // 单击直接弹出浏览器选择菜单
   const handleLinkPress = (url: string, title: string) => {
-    openURL(url, title);
-  };
-
-  // 长按：选择浏览器
-  const handleLinkLongPress = (url: string, title: string) => {
-    Alert.alert(
-      '打开方式',
-      `选择 "${title}" 的打开方式：`,
-      [
-        {
-          text: '默认浏览器',
-          onPress: () => openURL(url, title)
-        },
-        {
-          text: '选择浏览器',
-          onPress: () => openWithBrowserChoice(url, title)
-        },
-        {
-          text: '取消',
-          style: 'cancel'
-        }
-      ]
-    );
+    openWithBrowserChoice(url, title);
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -147,13 +124,13 @@ function HomeScreen(): React.JSX.Element {
         <View style={styles.header}>
           <Text style={dynamicStyles.title}>欢迎使用 React Native!</Text>
           <Text style={dynamicStyles.description}>
-            点击链接直接打开，长按选择浏览器
+            点击链接选择浏览器打开
           </Text>
           <Text style={[dynamicStyles.description, { marginTop: 10, fontSize: 14 }]}>
             支持多浏览器选择功能
           </Text>
           <Text style={dynamicStyles.helpText}>
-            💡 提示：长按任意链接可选择用哪个浏览器打开
+            💡 点击任意链接将弹出浏览器选择菜单
           </Text>
         </View>
         
@@ -164,7 +141,6 @@ function HomeScreen(): React.JSX.Element {
               key={index}
               style={dynamicStyles.link}
               onPress={() => handleLinkPress(url, title)}
-              onLongPress={() => handleLinkLongPress(url, title)}
               underlayColor={isDarkMode ? "#333333" : "#f0f0f0"}
               disabled={loadingUrl === url}>
               <View style={styles.linkContent}>
@@ -176,15 +152,16 @@ function HomeScreen(): React.JSX.Element {
                   </View>
                 </View>
                 <View style={styles.linkRight}>
-                  {loadingUrl === url && (
+                  {loadingUrl === url ? (
                     <ActivityIndicator 
                       size="small" 
                       color={isDarkMode ? "#ffffff" : "#007bff"} 
                     />
+                  ) : (
+                    <Text style={[styles.clickHint, { color: isDarkMode ? '#666666' : '#cccccc' }]}>
+                      点击选择
+                    </Text>
                   )}
-                  <Text style={[styles.longPressHint, { color: isDarkMode ? '#666666' : '#cccccc' }]}>
-                    长按选择
-                  </Text>
                 </View>
               </View>
             </TouchableHighlight>
@@ -230,9 +207,8 @@ const styles = StyleSheet.create({
   linkTextContainer: {
     flex: 1,
   },
-  longPressHint: {
+  clickHint: {
     fontSize: 10,
-    marginTop: 2,
     textAlign: 'center',
   },
 });
