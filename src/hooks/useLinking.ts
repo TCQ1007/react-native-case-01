@@ -238,6 +238,33 @@ export const useLinking = (): UseLinkingReturn => {
           return false;
         }
 
+        // 对于小米浏览器，使用专门的Intent格式
+        if (browser.packageName.includes('mi.') || browser.packageName.includes('xiaomi')) {
+          console.log(`小米浏览器使用专门的Intent格式打开`);
+          try {
+            // 方法1: 使用专门的Intent格式
+            const xiaomiIntent = `intent:${url}#Intent;package=${browser.packageName};action=android.intent.action.VIEW;end`;
+            console.log(`尝试小米浏览器专用Intent:`, xiaomiIntent);
+            await Linking.openURL(xiaomiIntent);
+            console.log(`${browser.name} 专用Intent成功`);
+            return true;
+          } catch (error) {
+            console.log(`${browser.name} 专用Intent失败:`, error);
+            
+            // 方法2: 尝试使用小米浏览器的自定义scheme
+            try {
+              const xiaomiScheme = `mibrowser://url?url=${encodeURIComponent(url)}`;
+              console.log(`尝试小米浏览器自定义scheme:`, xiaomiScheme);
+              await Linking.openURL(xiaomiScheme);
+              console.log(`${browser.name} 自定义scheme成功`);
+              return true;
+            } catch (error2) {
+              console.log(`${browser.name} 自定义scheme失败:`, error2);
+              return false;
+            }
+          }
+        }
+
         // 对于Chrome系列浏览器，不使用深度链接，直接使用系统默认方式
         if (browser.packageName.includes('chrome') || browser.packageName.includes('Chrome')) {
           console.log(`Chrome浏览器使用系统默认方式打开`);
@@ -308,8 +335,8 @@ export const useLinking = (): UseLinkingReturn => {
 
       console.log(`过滤后剩余 ${filteredBrowsers.length} 个浏览器`);
 
-      // 限制显示的浏览器数量，Alert最多只能显示几个按钮
-      const maxBrowsers = 6; // Alert对话框的按钮限制
+      // 限制显示的浏览器数量，为取消按钮留出空间
+      const maxBrowsers = 4; // 减少显示数量，为取消按钮留空间
       const displayBrowsers = filteredBrowsers.slice(0, maxBrowsers);
       
       if (filteredBrowsers.length > maxBrowsers) {
@@ -354,7 +381,7 @@ export const useLinking = (): UseLinkingReturn => {
         });
       }
 
-      // 显示选择对话框
+      // 显示选择对话框，确保取消按钮始终存在
       Alert.alert(
         '选择浏览器',
         `请选择用于打开 "${title}" 的浏览器：\n\n检测到 ${availableBrowsers.length} 个可用浏览器${filteredBrowsers.length > maxBrowsers ? `，显示前 ${maxBrowsers} 个` : ''}`,
