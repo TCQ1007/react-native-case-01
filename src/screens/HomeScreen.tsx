@@ -6,9 +6,9 @@ import {
   ScrollView,
   View,
   Text,
-  TouchableHighlight,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useLinking } from '../hooks/useLinking';
 
@@ -54,11 +54,21 @@ const Links = [
 
 function HomeScreen(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
-  const { openWithBrowserChoice, loadingUrl } = useLinking();
+  const { openWithBrowserChoice, isLoading, loadingUrl } = useLinking();
 
-  // 单击直接弹出浏览器选择菜单
-  const handleLinkPress = (url: string, title: string) => {
-    openWithBrowserChoice(url, title);
+  const handleLinkPress = async (link: { title: string; url: string }) => {
+    console.log('=== 开始处理链接点击 ===');
+    console.log('链接标题:', link.title);
+    console.log('链接URL:', link.url);
+    
+    try {
+      await openWithBrowserChoice(link.url, link.title);
+      console.log('链接处理完成');
+    } catch (error) {
+      console.error('链接处理失败:', error);
+    }
+    
+    console.log('=== 链接点击处理结束 ===');
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -115,6 +125,10 @@ function HomeScreen(): React.JSX.Element {
       marginTop: 5,
       fontStyle: 'italic',
     },
+    linkIcon: {
+      fontSize: 24,
+      marginRight: 15,
+    },
   });
 
   return (
@@ -122,7 +136,7 @@ function HomeScreen(): React.JSX.Element {
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>欢迎使用 React Native!</Text>
+          <Text style={dynamicStyles.title}>🌐 链接测试</Text>
           <Text style={dynamicStyles.description}>
             点击链接选择浏览器打开
           </Text>
@@ -136,23 +150,26 @@ function HomeScreen(): React.JSX.Element {
         
         <View style={styles.linksContainer}>
           <Text style={dynamicStyles.linksTitle}>常用链接</Text>
-          {Links.map(({title, description, url, icon}, index) => (
-            <TouchableHighlight
+          {Links.map((link, index) => (
+            <TouchableOpacity
               key={index}
-              style={dynamicStyles.link}
-              onPress={() => handleLinkPress(url, title)}
-              underlayColor={isDarkMode ? "#333333" : "#f0f0f0"}
-              disabled={loadingUrl === url}>
+              style={[
+                dynamicStyles.link,
+                isLoading && loadingUrl === link.url && { backgroundColor: isDarkMode ? '#333333' : '#f0f0f0' }
+              ]}
+              onPress={() => handleLinkPress(link)}
+              disabled={isLoading}
+            >
               <View style={styles.linkContent}>
                 <View style={styles.linkLeft}>
-                  <Text style={styles.linkIcon}>{icon}</Text>
+                  <Text style={dynamicStyles.linkIcon}>{link.icon}</Text>
                   <View style={styles.linkTextContainer}>
-                    <Text style={dynamicStyles.linkTitle}>{title}</Text>
-                    <Text style={dynamicStyles.linkDescription}>{description}</Text>
+                    <Text style={dynamicStyles.linkTitle}>{link.title}</Text>
+                    <Text style={dynamicStyles.linkDescription}>{link.description}</Text>
                   </View>
                 </View>
                 <View style={styles.linkRight}>
-                  {loadingUrl === url ? (
+                  {isLoading && loadingUrl === link.url ? (
                     <ActivityIndicator 
                       size="small" 
                       color={isDarkMode ? "#ffffff" : "#007bff"} 
@@ -164,7 +181,7 @@ function HomeScreen(): React.JSX.Element {
                   )}
                 </View>
               </View>
-            </TouchableHighlight>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -199,10 +216,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 60,
-  },
-  linkIcon: {
-    fontSize: 24,
-    marginRight: 15,
   },
   linkTextContainer: {
     flex: 1,
