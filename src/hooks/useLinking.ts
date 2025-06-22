@@ -14,11 +14,21 @@ interface UseLinkingReturn {
   loadingUrl: string | null;
 }
 
-// 常见浏览器列表（带图标）
+// 常见浏览器列表（带图标） - 包含多个可能的包名
 const COMMON_BROWSERS: Browser[] = [
   {
     name: 'Chrome',
-    packageName: 'com.android.chrome',
+    packageName: 'com.android.chrome', // 标准Chrome
+    icon: '🌐',
+  },
+  {
+    name: 'Chrome (Google)',
+    packageName: 'com.chrome.beta', // Chrome Beta
+    icon: '🌐',
+  },
+  {
+    name: 'Chrome (Stable)',
+    packageName: 'com.google.android.apps.chrome', // Google Chrome
     icon: '🌐',
   },
   {
@@ -37,13 +47,23 @@ const COMMON_BROWSERS: Browser[] = [
     icon: '📱',
   },
   {
-    name: '小米浏览器(国际版)',
+    name: '小米浏览器(Mini)',
     packageName: 'com.mi.globalbrowser.mini',
+    icon: '📱',
+  },
+  {
+    name: '小米浏览器(国际版)',
+    packageName: 'com.xiaomi.browser',
     icon: '📱',
   },
   {
     name: 'UC浏览器',
     packageName: 'com.UCMobile.intl',
+    icon: '🚀',
+  },
+  {
+    name: 'UC浏览器(中文版)',
+    packageName: 'com.uc.browser.en',
     icon: '🚀',
   },
   {
@@ -91,81 +111,75 @@ export const useLinking = (): UseLinkingReturn => {
     };
   }, []);
 
+  // 检测浏览器是否安装
+  const checkBrowserInstalled = async (packageName: string): Promise<boolean> => {
+    try {
+      // 使用market://协议检测应用是否安装
+      const marketUrl = `market://details?id=${packageName}`;
+      const canOpen = await Linking.canOpenURL(marketUrl);
+      console.log(`浏览器检测 ${packageName}:`, canOpen);
+      return canOpen;
+    } catch (error) {
+      console.log(`检测浏览器 ${packageName} 失败:`, error);
+      return false;
+    }
+  };
+
+  // 获取可用的浏览器列表
+  const getAvailableBrowsers = async (): Promise<Browser[]> => {
+    console.log('开始检测可用浏览器...');
+    const availableBrowsers: Browser[] = [];
+    
+    for (const browser of COMMON_BROWSERS) {
+      const isInstalled = await checkBrowserInstalled(browser.packageName);
+      if (isInstalled) {
+        availableBrowsers.push(browser);
+        console.log(`发现已安装浏览器: ${browser.name} (${browser.packageName})`);
+      }
+    }
+    
+    console.log(`总共发现 ${availableBrowsers.length} 个可用浏览器`);
+    return availableBrowsers;
+  };
+
   // 使用特定浏览器打开URL
   const openWithSpecificBrowser = async (url: string, browser: Browser): Promise<boolean> => {
     try {
       if (Platform.OS === 'android') {
-        // 特殊处理Chrome浏览器
-        if (browser.packageName === 'com.android.chrome') {
-          console.log(`开始尝试使用 Chrome 打开:`, url);
-          
-          // 方法1: 使用最简单的Intent格式（推荐）
-          try {
-            const simpleIntent = `intent:${url}#Intent;package=${browser.packageName};end`;
-            console.log(`尝试使用 Chrome 打开 (简单Intent):`, simpleIntent);
-            await Linking.openURL(simpleIntent);
-            console.log(`Chrome 打开成功 (简单Intent)`);
-            return true;
-          } catch (error) {
-            console.log(`Chrome 简单Intent失败:`, error);
+        console.log(`开始尝试使用 ${browser.name} 打开:`, url);
+        
+        // 方法1: 最简单的方式 - 直接尝试启动应用并传递URL
+        try {
+          // 先检查应用是否安装
+          const isInstalled = await checkBrowserInstalled(browser.packageName);
+          if (!isInstalled) {
+            console.log(`${browser.name} 未安装`);
+            return false;
           }
 
-          // 方法2: 使用ACTION_VIEW Intent
-          try {
-            const actionViewIntent = `intent:${url}#Intent;action=android.intent.action.VIEW;package=${browser.packageName};end`;
-            console.log(`尝试使用 Chrome 打开 (ACTION_VIEW):`, actionViewIntent);
-            await Linking.openURL(actionViewIntent);
-            console.log(`Chrome 打开成功 (ACTION_VIEW)`);
-            return true;
-          } catch (error) {
-            console.log(`Chrome ACTION_VIEW失败:`, error);
+          // 对于Chrome系列浏览器，使用特殊处理
+          if (browser.packageName.includes('chrome') || browser.packageName.includes('Chrome')) {
+            // 尝试使用Chrome的深度链接
+            try {
+              const chromeUrl = `googlechrome://navigate?url=${encodeURIComponent(url)}`;
+              console.log(`尝试使用Chrome深度链接:`, chromeUrl);
+              await Linking.openURL(chromeUrl);
+              console.log(`${browser.name} 深度链接成功`);
+              return true;
+            } catch (error) {
+              console.log(`${browser.name} 深度链接失败:`, error);
+            }
           }
 
-          // 方法3: 尝试启动Chrome然后再打开URL
-          try {
-            console.log(`尝试先启动 Chrome 应用`);
-            // 检查Chrome是否安装
-            const chromeAppIntent = `intent:#Intent;package=${browser.packageName};end`;
-            await Linking.openURL(chromeAppIntent);
-            
-            // 等待一下然后打开URL
-            setTimeout(async () => {
-              try {
-                console.log(`Chrome启动后尝试打开URL:`, url);
-                await Linking.openURL(url);
-                console.log(`Chrome启动后URL打开成功`);
-              } catch (error) {
-                console.log(`Chrome启动后URL打开失败:`, error);
-              }
-            }, 1500);
-            
-            console.log(`Chrome 启动成功，将在1.5秒后打开URL`);
-            return true;
-          } catch (error) {
-            console.log(`Chrome 启动失败:`, error);
-          }
-        } else {
-          // 其他浏览器使用标准Intent格式
-          try {
-            const standardIntent = `intent:${url}#Intent;package=${browser.packageName};end`;
-            console.log(`尝试使用 ${browser.name} 打开 (标准Intent):`, standardIntent);
-            await Linking.openURL(standardIntent);
-            console.log(`${browser.name} 打开成功`);
-            return true;
-          } catch (error) {
-            console.log(`${browser.name} 标准Intent失败:`, error);
-          }
+          // 方法2: 使用标准方式打开，让系统选择器处理
+          console.log(`尝试让系统处理URL并选择 ${browser.name}`);
+          await Linking.openURL(url);
+          console.log(`${browser.name} 系统方式成功`);
+          return true;
 
-          // 备用方法：使用ACTION_VIEW
-          try {
-            const actionViewIntent = `intent:${url}#Intent;action=android.intent.action.VIEW;package=${browser.packageName};end`;
-            console.log(`尝试使用 ${browser.name} 打开 (ACTION_VIEW):`, actionViewIntent);
-            await Linking.openURL(actionViewIntent);
-            console.log(`${browser.name} ACTION_VIEW成功`);
-            return true;
-          } catch (error) {
-            console.log(`${browser.name} ACTION_VIEW失败:`, error);
-          }
+        } catch (error) {
+          console.log(`${browser.name} 所有方法都失败:`, error);
+          return false;
         }
       }
       return false;
@@ -180,15 +194,25 @@ export const useLinking = (): UseLinkingReturn => {
     try {
       console.log('显示浏览器选择器 for:', url);
       
-      // 直接创建浏览器选项，不进行预检测
-      const browserOptions = COMMON_BROWSERS.map(browser => ({
+      // 检测可用的浏览器
+      const availableBrowsers = await getAvailableBrowsers();
+      
+      if (availableBrowsers.length === 0) {
+        console.log('没有检测到可用的浏览器，使用系统默认');
+        Alert.alert('提示', '没有检测到其他浏览器，将使用系统默认浏览器打开');
+        await Linking.openURL(url);
+        return;
+      }
+
+      // 创建浏览器选项
+      const browserOptions = availableBrowsers.map(browser => ({
         text: `${browser.icon} ${browser.name}`,
         onPress: () => {
           console.log(`用户选择了 ${browser.name}`);
           openWithSpecificBrowser(url, browser).then(success => {
             if (!success) {
               console.log(`${browser.name} 打开失败，使用系统默认`);
-              Alert.alert('提示', `${browser.name} 可能未安装，将使用系统默认浏览器打开`);
+              Alert.alert('提示', `${browser.name} 打开失败，将使用系统默认浏览器打开`);
               Linking.openURL(url);
             }
           });
@@ -210,7 +234,7 @@ export const useLinking = (): UseLinkingReturn => {
       // 显示选择对话框
       Alert.alert(
         '选择浏览器',
-        `请选择用于打开 "${title}" 的浏览器：`,
+        `请选择用于打开 "${title}" 的浏览器：\n\n检测到 ${availableBrowsers.length} 个可用浏览器`,
         [
           ...browserOptions,
           {
