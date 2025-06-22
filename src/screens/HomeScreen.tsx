@@ -57,18 +57,8 @@ function HomeScreen(): React.JSX.Element {
   const { openWithBrowserChoice, isLoading, loadingUrl } = useLinking();
 
   const handleLinkPress = async (link: { title: string; url: string }) => {
-    console.log('=== 开始处理链接点击 ===');
-    console.log('链接标题:', link.title);
-    console.log('链接URL:', link.url);
-    
-    try {
-      await openWithBrowserChoice(link.url, link.title);
-      console.log('链接处理完成');
-    } catch (error) {
-      console.error('链接处理失败:', error);
-    }
-    
-    console.log('=== 链接点击处理结束 ===');
+    console.log('链接点击:', link.title, link.url);
+    await openWithBrowserChoice(link.url, link.title);
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -102,7 +92,7 @@ function HomeScreen(): React.JSX.Element {
       borderRadius: 12,
       borderWidth: 1,
       borderColor: isDarkMode ? '#444444' : '#e0e0e0',
-      shadowColor: isDarkMode ? '#000000' : '#000000',
+      shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: isDarkMode ? 0.3 : 0.1,
       shadowRadius: 4,
@@ -138,13 +128,10 @@ function HomeScreen(): React.JSX.Element {
         <View style={styles.header}>
           <Text style={dynamicStyles.title}>🌐 链接测试</Text>
           <Text style={dynamicStyles.description}>
-            点击链接选择浏览器打开
-          </Text>
-          <Text style={[dynamicStyles.description, { marginTop: 10, fontSize: 14 }]}>
-            支持多浏览器选择功能
+            点击链接使用默认浏览器打开
           </Text>
           <Text style={dynamicStyles.helpText}>
-            💡 点击任意链接将弹出浏览器选择菜单
+            💡 点击任意链接将弹出确认对话框
           </Text>
         </View>
         
@@ -176,7 +163,7 @@ function HomeScreen(): React.JSX.Element {
                     />
                   ) : (
                     <Text style={[styles.clickHint, { color: isDarkMode ? '#666666' : '#cccccc' }]}>
-                      点击选择
+                      点击确认
                     </Text>
                   )}
                 </View>
