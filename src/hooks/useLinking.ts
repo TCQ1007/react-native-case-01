@@ -114,11 +114,29 @@ export const useLinking = (): UseLinkingReturn => {
   // 检测浏览器是否安装
   const checkBrowserInstalled = async (packageName: string): Promise<boolean> => {
     try {
-      // 使用market://协议检测应用是否安装
+      // 方法1: 尝试创建Intent来检测应用是否真正安装
+      const intentUrl = `intent://test#Intent;package=${packageName};end`;
+      const canOpenIntent = await Linking.canOpenURL(intentUrl);
+      console.log(`浏览器检测(Intent) ${packageName}:`, canOpenIntent);
+      
+      // 方法2: 使用market://协议作为备用检测
       const marketUrl = `market://details?id=${packageName}`;
-      const canOpen = await Linking.canOpenURL(marketUrl);
-      console.log(`浏览器检测 ${packageName}:`, canOpen);
-      return canOpen;
+      const canOpenMarket = await Linking.canOpenURL(marketUrl);
+      console.log(`浏览器检测(Market) ${packageName}:`, canOpenMarket);
+      
+      // 对于某些特殊浏览器，使用自定义scheme检测
+      let customSchemeCheck = false;
+      if (packageName === 'com.android.chrome' || packageName.includes('chrome')) {
+        const chromeScheme = 'googlechrome://';
+        customSchemeCheck = await Linking.canOpenURL(chromeScheme);
+        console.log(`Chrome自定义scheme检测:`, customSchemeCheck);
+      }
+      
+      // 综合判断：Intent检测为主，自定义scheme作为补充
+      const isInstalled = canOpenIntent || customSchemeCheck;
+      console.log(`最终检测结果 ${packageName}:`, isInstalled);
+      
+      return isInstalled;
     } catch (error) {
       console.log(`检测浏览器 ${packageName} 失败:`, error);
       return false;
@@ -131,14 +149,18 @@ export const useLinking = (): UseLinkingReturn => {
     const availableBrowsers: Browser[] = [];
     
     for (const browser of COMMON_BROWSERS) {
+      console.log(`正在检测: ${browser.name} (${browser.packageName})`);
       const isInstalled = await checkBrowserInstalled(browser.packageName);
       if (isInstalled) {
         availableBrowsers.push(browser);
-        console.log(`发现已安装浏览器: ${browser.name} (${browser.packageName})`);
+        console.log(`✅ 发现已安装浏览器: ${browser.name} (${browser.packageName})`);
+      } else {
+        console.log(`❌ 浏览器未安装: ${browser.name} (${browser.packageName})`);
       }
     }
     
     console.log(`总共发现 ${availableBrowsers.length} 个可用浏览器`);
+    console.log('已安装的浏览器列表:', availableBrowsers.map(b => `${b.name} (${b.packageName})`));
     return availableBrowsers;
   };
 
@@ -203,15 +225,23 @@ export const useLinking = (): UseLinkingReturn => {
 
       // 过滤重复的Chrome浏览器，只保留一个主要的Chrome
       const filteredBrowsers = availableBrowsers.filter((browser, index, arr) => {
-        if (browser.packageName.includes('chrome')) {
+        // 只对Chrome系列浏览器进行过滤
+        if (browser.packageName.includes('chrome') && browser.packageName !== 'com.mi.globalbrowser' && browser.packageName !== 'com.xiaomi.browser') {
           // 优先保留标准Chrome，如果没有则保留第一个Chrome变体
           const chromeIndex = arr.findIndex(b => b.packageName === 'com.android.chrome');
           if (chromeIndex !== -1) {
             return browser.packageName === 'com.android.chrome';
           } else {
-            return index === arr.findIndex(b => b.packageName.includes('chrome'));
+            // 如果没有标准Chrome，保留第一个Chrome变体
+            const firstChromeIndex = arr.findIndex(b => 
+              b.packageName.includes('chrome') && 
+              b.packageName !== 'com.mi.globalbrowser' && 
+              b.packageName !== 'com.xiaomi.browser'
+            );
+            return index === firstChromeIndex;
           }
         }
+        // 非Chrome浏览器（包括小米浏览器）都保留
         return true;
       });
 
